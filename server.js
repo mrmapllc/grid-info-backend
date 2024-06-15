@@ -1,34 +1,35 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-let grids = {
-    "1": { "Grid": "A1", "Info": "Sample info" },
-    "2": { "Grid": "A2", "Info": "Sample info" },
-    "A44": { "Grid": "A44", "Info": "Sample info for A44" },
-    // Add other grids here
-};
+let grids = {};
+
+// Load GeoJSON data
+const geojsonFilePath = path.join(__dirname, 'grids.geojson');
+fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
+    if (err) {
+        console.error('Error reading GeoJSON file:', err);
+        return;
+    }
+    const geojson = JSON.parse(data);
+    geojson.features.forEach(feature => {
+        const gridId = feature.properties.Grid;
+        grids[gridId] = feature.properties;
+    });
+    console.log('GeoJSON data loaded successfully');
+});
 
 app.use(cors());
 app.use(bodyParser.json());
 
-// Get grid information by OBJECTID
-app.get('/api/grids/:id', (req, res) => {
-    const gridId = req.params.id;
-    const grid = grids[gridId];
-    if (grid) {
-        res.json({ attributes: grid });
-    } else {
-        res.status(404).json({ error: 'Grid not found' });
-    }
-});
-
 // Get grid information by Grid name
 app.get('/api/grids/name/:gridName', (req, res) => {
     const gridName = req.params.gridName;
-    const grid = Object.values(grids).find(grid => grid.Grid === gridName);
+    const grid = grids[gridName];
     if (grid) {
         res.json({ attributes: grid });
     } else {
@@ -37,20 +38,24 @@ app.get('/api/grids/name/:gridName', (req, res) => {
 });
 
 // Update grid information
-app.put('/api/grids/:id', (req, res) => {
-    const gridId = req.params.id;
+app.put('/api/grids/name/:gridName', (req, res) => {
+    const gridName = req.params.gridName;
     const newInfo = req.body;
-    grids[gridId] = { ...grids[gridId], ...newInfo };
-    res.json({ attributes: grids[gridId] });
+    if (grids[gridName]) {
+        grids[gridName] = { ...grids[gridName], ...newInfo };
+        res.json({ attributes: grids[gridName] });
+    } else {
+        res.status(404).json({ error: 'Grid not found' });
+    }
 });
 
 // Delete a specific field from the grid
-app.delete('/api/grids/:id/:field', (req, res) => {
-    const gridId = req.params.id;
+app.delete('/api/grids/name/:gridName/:field', (req, res) => {
+    const gridName = req.params.gridName;
     const fieldName = req.params.field;
-    if (grids[gridId]) {
-        delete grids[gridId][fieldName];
-        res.json({ attributes: grids[gridId] });
+    if (grids[gridName]) {
+        delete grids[gridName][fieldName];
+        res.json({ attributes: grids[gridName] });
     } else {
         res.status(404).json({ error: 'Grid not found' });
     }
