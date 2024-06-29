@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const XLSX = require('xlsx');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -92,7 +93,7 @@ app.post('/api/grids/add-field-to-all', (req, res) => {
     });
 });
 
-// Add a new endpoint to delete a field from all grid features
+// Delete a field from all grid features
 app.delete('/api/grids/delete-field-from-all/:fieldName', (req, res) => {
     const fieldName = req.params.fieldName;
 
@@ -116,6 +117,36 @@ app.delete('/api/grids/delete-field-from-all/:fieldName', (req, res) => {
             }
 
             res.json({ message: 'Field deleted from all grid features successfully' });
+        });
+    });
+});
+
+// Export grid information to an Excel file
+app.get('/api/grids/export', (req, res) => {
+    const workbook = XLSX.utils.book_new();
+    const sheetData = [];
+
+    for (const gridId in grids) {
+        if (grids.hasOwnProperty(gridId)) {
+            sheetData.push(grids[gridId]);
+        }
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(sheetData);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Grids');
+
+    const filePath = path.join(__dirname, 'grids.xlsx');
+    XLSX.writeFile(workbook, filePath);
+
+    res.download(filePath, 'grids.xlsx', (err) => {
+        if (err) {
+            console.error('Error downloading Excel file:', err);
+            res.status(500).json({ error: 'Error downloading Excel file' });
+        }
+        fs.unlink(filePath, (err) => {
+            if (err) {
+                console.error('Error deleting Excel file:', err);
+            }
         });
     });
 });
