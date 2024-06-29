@@ -61,6 +61,37 @@ app.delete('/api/grids/name/:gridName/:field', (req, res) => {
     }
 });
 
+// Add a new field to all grid features
+app.post('/api/grids/add-field-to-all', (req, res) => {
+    const { fieldName, fieldValue } = req.body;
+    if (!fieldName) {
+        return res.status(400).json({ error: 'Field name is required' });
+    }
+
+    fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading GeoJSON file:', err);
+            return res.status(500).json({ error: 'Error reading GeoJSON file' });
+        }
+
+        const geojson = JSON.parse(data);
+        geojson.features.forEach(feature => {
+            feature.properties[fieldName] = fieldValue;
+            const gridId = feature.properties.Grid;
+            grids[gridId] = feature.properties; // Update the in-memory grids object
+        });
+
+        fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
+            if (err) {
+                console.error('Error writing GeoJSON file:', err);
+                return res.status(500).json({ error: 'Error writing GeoJSON file' });
+            }
+
+            res.json({ message: 'Field added to all grid features successfully' });
+        });
+    });
+});
+
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });
