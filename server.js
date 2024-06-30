@@ -42,9 +42,33 @@ app.get('/api/grids/name/:gridName', (req, res) => {
 app.put('/api/grids/name/:gridName', (req, res) => {
     const gridName = req.params.gridName;
     const newInfo = req.body;
+
     if (grids[gridName]) {
         grids[gridName] = { ...grids[gridName], ...newInfo };
-        res.json({ attributes: grids[gridName] });
+
+        // Update the GeoJSON file
+        fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('Error reading GeoJSON file:', err);
+                return res.status(500).json({ error: 'Error reading GeoJSON file' });
+            }
+
+            const geojson = JSON.parse(data);
+            geojson.features.forEach(feature => {
+                if (feature.properties.Grid === gridName) {
+                    feature.properties = { ...feature.properties, ...newInfo };
+                }
+            });
+
+            fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
+                if (err) {
+                    console.error('Error writing GeoJSON file:', err);
+                    return res.status(500).json({ error: 'Error writing GeoJSON file' });
+                }
+
+                res.json({ attributes: grids[gridName] });
+            });
+        });
     } else {
         res.status(404).json({ error: 'Grid not found' });
     }
@@ -54,9 +78,33 @@ app.put('/api/grids/name/:gridName', (req, res) => {
 app.delete('/api/grids/name/:gridName/:field', (req, res) => {
     const gridName = req.params.gridName;
     const fieldName = req.params.field;
+
     if (grids[gridName]) {
         delete grids[gridName][fieldName];
-        res.json({ attributes: grids[gridName] });
+
+        // Update the GeoJSON file
+        fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('Error reading GeoJSON file:', err);
+                return res.status(500).json({ error: 'Error reading GeoJSON file' });
+            }
+
+            const geojson = JSON.parse(data);
+            geojson.features.forEach(feature => {
+                if (feature.properties.Grid === gridName) {
+                    delete feature.properties[fieldName];
+                }
+            });
+
+            fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
+                if (err) {
+                    console.error('Error writing GeoJSON file:', err);
+                    return res.status(500).json({ error: 'Error writing GeoJSON file' });
+                }
+
+                res.json({ attributes: grids[gridName] });
+            });
+        });
     } else {
         res.status(404).json({ error: 'Grid not found' });
     }
