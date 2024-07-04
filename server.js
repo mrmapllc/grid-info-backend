@@ -92,34 +92,6 @@ app.post('/api/grids/add-field-to-all', (req, res) => {
     });
 });
 
-// Add a new endpoint to delete a field from all grid features
-app.delete('/api/grids/delete-field-from-all/:fieldName', (req, res) => {
-    const fieldName = req.params.fieldName;
-
-    fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading GeoJSON file:', err);
-            return res.status(500).json({ error: 'Error reading GeoJSON file' });
-        }
-
-        const geojson = JSON.parse(data);
-        geojson.features.forEach(feature => {
-            delete feature.properties[fieldName];
-            const gridId = feature.properties.Grid;
-            delete grids[gridId][fieldName]; // Update the in-memory grids object
-        });
-
-        fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
-            if (err) {
-                console.error('Error writing GeoJSON file:', err);
-                return res.status(500).json({ error: 'Error writing GeoJSON file' });
-            }
-
-            res.json({ message: 'Field deleted from all grid features successfully' });
-        });
-    });
-});
-
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });
