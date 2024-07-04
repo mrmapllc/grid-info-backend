@@ -7,10 +7,18 @@ const XLSX = require('xlsx');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Allow CORS from your frontend URL
+const corsOptions = {
+    origin: 'https://mrmapllc.github.io',
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
+
 let grids = {};
 
 // Load GeoJSON data
-const geojsonFilePath = path.join(__dirname, 'grids.geojson'); // Ensure this path points to the backend directory
+const geojsonFilePath = path.join(__dirname, 'grids.geojson');
 fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
     if (err) {
         console.error('Error reading GeoJSON file:', err);
@@ -23,9 +31,6 @@ fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
     });
     console.log('GeoJSON data loaded successfully');
 });
-
-app.use(cors());
-app.use(bodyParser.json());
 
 // Function to save grids object to GeoJSON file
 function saveGridsToFile(res, successMessage) {
