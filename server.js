@@ -27,6 +27,31 @@ fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
 app.use(cors());
 app.use(bodyParser.json());
 
+// Function to save grids object to GeoJSON file
+function saveGridsToFile(res, successMessage) {
+    fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error reading GeoJSON file:', err);
+            return res.status(500).json({ error: 'Error reading GeoJSON file' });
+        }
+
+        const geojson = JSON.parse(data);
+        geojson.features.forEach(feature => {
+            const gridId = feature.properties.Grid;
+            feature.properties = grids[gridId];
+        });
+
+        fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
+            if (err) {
+                console.error('Error writing GeoJSON file:', err);
+                return res.status(500).json({ error: 'Error writing GeoJSON file' });
+            }
+
+            res.json(successMessage);
+        });
+    });
+}
+
 // Get grid information by Grid name
 app.get('/api/grids/name/:gridName', (req, res) => {
     const gridName = req.params.gridName;
@@ -45,30 +70,7 @@ app.put('/api/grids/name/:gridName', (req, res) => {
 
     if (grids[gridName]) {
         grids[gridName] = { ...grids[gridName], ...newInfo };
-
-        // Update the GeoJSON file
-        fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
-            if (err) {
-                console.error('Error reading GeoJSON file:', err);
-                return res.status(500).json({ error: 'Error reading GeoJSON file' });
-            }
-
-            const geojson = JSON.parse(data);
-            geojson.features.forEach(feature => {
-                if (feature.properties.Grid === gridName) {
-                    feature.properties = { ...feature.properties, ...newInfo };
-                }
-            });
-
-            fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
-                if (err) {
-                    console.error('Error writing GeoJSON file:', err);
-                    return res.status(500).json({ error: 'Error writing GeoJSON file' });
-                }
-
-                res.json({ attributes: grids[gridName] });
-            });
-        });
+        saveGridsToFile(res, { attributes: grids[gridName] });
     } else {
         res.status(404).json({ error: 'Grid not found' });
     }
@@ -81,30 +83,7 @@ app.delete('/api/grids/name/:gridName/:field', (req, res) => {
 
     if (grids[gridName]) {
         delete grids[gridName][fieldName];
-
-        // Update the GeoJSON file
-        fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
-            if (err) {
-                console.error('Error reading GeoJSON file:', err);
-                return res.status(500).json({ error: 'Error reading GeoJSON file' });
-            }
-
-            const geojson = JSON.parse(data);
-            geojson.features.forEach(feature => {
-                if (feature.properties.Grid === gridName) {
-                    delete feature.properties[fieldName];
-                }
-            });
-
-            fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
-                if (err) {
-                    console.error('Error writing GeoJSON file:', err);
-                    return res.status(500).json({ error: 'Error writing GeoJSON file' });
-                }
-
-                res.json({ attributes: grids[gridName] });
-            });
-        });
+        saveGridsToFile(res, { attributes: grids[gridName] });
     } else {
         res.status(404).json({ error: 'Grid not found' });
     }
@@ -117,56 +96,22 @@ app.post('/api/grids/add-field-to-all', (req, res) => {
         return res.status(400).json({ error: 'Field name is required' });
     }
 
-    fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading GeoJSON file:', err);
-            return res.status(500).json({ error: 'Error reading GeoJSON file' });
-        }
-
-        const geojson = JSON.parse(data);
-        geojson.features.forEach(feature => {
-            feature.properties[fieldName] = fieldValue;
-            const gridId = feature.properties.Grid;
-            grids[gridId] = feature.properties; // Update the in-memory grids object
-        });
-
-        fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
-            if (err) {
-                console.error('Error writing GeoJSON file:', err);
-                return res.status(500).json({ error: 'Error writing GeoJSON file' });
-            }
-
-            res.json({ message: 'Field added to all grid features successfully' });
-        });
+    Object.keys(grids).forEach(gridId => {
+        grids[gridId][fieldName] = fieldValue;
     });
+
+    saveGridsToFile(res, { message: 'Field added to all grid features successfully' });
 });
 
 // Delete a field from all grid features
 app.delete('/api/grids/delete-field-from-all/:fieldName', (req, res) => {
     const fieldName = req.params.fieldName;
 
-    fs.readFile(geojsonFilePath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('Error reading GeoJSON file:', err);
-            return res.status(500).json({ error: 'Error reading GeoJSON file' });
-        }
-
-        const geojson = JSON.parse(data);
-        geojson.features.forEach(feature => {
-            delete feature.properties[fieldName];
-            const gridId = feature.properties.Grid;
-            delete grids[gridId][fieldName]; // Update the in-memory grids object
-        });
-
-        fs.writeFile(geojsonFilePath, JSON.stringify(geojson, null, 4), (err) => {
-            if (err) {
-                console.error('Error writing GeoJSON file:', err);
-                return res.status(500).json({ error: 'Error writing GeoJSON file' });
-            }
-
-            res.json({ message: 'Field deleted from all grid features successfully' });
-        });
+    Object.keys(grids).forEach(gridId => {
+        delete grids[gridId][fieldName];
     });
+
+    saveGridsToFile(res, { message: 'Field deleted from all grid features successfully' });
 });
 
 // Export grid information to an Excel file
